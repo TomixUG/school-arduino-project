@@ -18,19 +18,17 @@ unsigned long ledPreviousMillis = 0; // will store last time LED was updated
 const long ledInterval = 500;        // interval at which to blink (milliseconds)
 int ledState = LOW;                  // stores wheter the led is on or off
 
-bool mode = false;
-// A (false) - normal
-// B (true) - gaming
+enum Mode
+{
+    CONTROL,
+    GAMING
+};
+Mode mode = CONTROL;
 
 bool keyStates[4] = {false, false, false, false};                // temporary storage for the key states
 int keyPins[4] = {RIGHT_UP, RIGHT_DOWN, LEFT_UP, LEFT_DOWN};     // the key pins on the microcontroller
 uint8_t keyCodesA[4] = {BUTTON_2, BUTTON_1, BUTTON_4, BUTTON_5}; // keyCodes for mode A
-// 5 - Y
-// 2 - B
-// 1 - A
-// 4 - X
-
-uint8_t keyCodesB[4] = {18, 5, 17, 16}; // keyCodes for mode B
+uint8_t keyCodesB[4] = {18, 5, 17, 16};                          // keyCodes for mode B
 
 float mapf(float x, float in_min, float in_max, float out_min, float out_max)
 {
@@ -47,7 +45,7 @@ void handleButton(int keyIndex)
         {
             // key not currently pressed
             keyStates[keyIndex] = true;
-            bleGamepad.press(mode == false ? keyCodesA[keyIndex] : keyCodesB[keyIndex]);
+            bleGamepad.press(mode == CONTROL ? keyCodesA[keyIndex] : keyCodesB[keyIndex]);
             bleGamepad.sendReport();
         }
     }
@@ -58,7 +56,7 @@ void handleButton(int keyIndex)
         {
             // key currently pressed
             keyStates[keyIndex] = false;
-            bleGamepad.release(mode == false ? keyCodesA[keyIndex] : keyCodesB[keyIndex]);
+            bleGamepad.release(mode == CONTROL ? keyCodesA[keyIndex] : keyCodesB[keyIndex]);
             bleGamepad.sendReport();
         }
     }
@@ -94,9 +92,9 @@ void setup()
     bleGamepadConfig.setHatSwitchCount(4);
     bleGamepadConfig.setVid(0xe502);
     bleGamepadConfig.setPid(0xabcd);
-    bleGamepadConfig.setAxesMin(0x0000); // 0 --> int16_t - 16 bit signed integer - Can be in decimal or hexadecimal
-    bleGamepadConfig.setAxesMax(0x7FFF); // 32767 --> int16_t - 16 bit signed integer - Can be in decimal or hexadecimal
-    bleGamepad.begin(&bleGamepadConfig); // Simulation controls, special buttons and hats 2/3/4 are disabled by default
+    bleGamepadConfig.setAxesMin(0x0000);
+    bleGamepadConfig.setAxesMax(0x7FFF);
+    bleGamepad.begin(&bleGamepadConfig);
 }
 
 void loop()
@@ -112,13 +110,13 @@ void loop()
         // the joystick
         if (digitalRead(SWITCH) == LOW)
         {
-            mode = false;
+            mode = CONTROL;
             bleGamepad.setLeftThumb(mapf(event.acceleration.x, -10.3, 10.8, 32767, 0), mapf(event.acceleration.y, -11, 9.6, 0, 32767));
             bleGamepad.setRightThumb(16383, 16383); // reset the other joystick to be in  the midle
         }
         else
         {
-            mode = true;
+            mode = GAMING;
             bleGamepad.setRightThumb(mapf(event.acceleration.x, -10.3, 10.8, 32767, 0), mapf(event.acceleration.y, -11, 9.6, 0, 32767));
             bleGamepad.setLeftThumb(16383, 16383); // reset the other joystick to be in the midle
         }
@@ -141,13 +139,9 @@ void loop()
 
             // if the LED is off turn it on and vice-versa:
             if (ledState == LOW)
-            {
                 ledState = HIGH;
-            }
             else
-            {
                 ledState = LOW;
-            }
 
             // set the LED with the ledState of the variable:
             digitalWrite(LED, ledState);
